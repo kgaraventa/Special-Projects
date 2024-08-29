@@ -1,0 +1,390 @@
+---
+title: "Family Conditions Evaluation Summary" 
+subtitle: "Session: Mental Health" 
+author: "Trainer: Dr. James Ewell"
+date: "Date: September 6, 2023, December 11, 2023, and February 6, 2024"
+
+
+params: 
+    session: "MEHE"
+    cohort: "2324"
+output:
+     html_document:
+       df_print: paged
+       fig_width: 6
+       fig_height: 4
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      message = FALSE,
+                      warning = FALSE,
+                      cache = FALSE)
+```
+
+
+```{r library, include=FALSE}
+library(tidyverse)
+library(skimr)
+library(janitor)
+library(ggthemes)
+library(hrbrthemes)
+library(readxl)
+library(ggtext)
+library(ggalt)
+library(ragg)
+library(systemfonts)
+library(gt)
+library(knitr)
+library(pagedown)
+library(scales)
+library(googlesheets4)
+```
+
+
+```{r colors, include=FALSE}
+psu_green <- "#6d8d24"
+psu_electricgreen <- "#cfd82d"
+psu_forestgreen <- "#213921"
+psu_blue <- "#008ac1"
+psu_lightblue <- "#a5dff9"
+psu_sand <- "#e8d3a2"
+psu_stone <- "#8a8a67"
+psu_yellow <- "#ffc20e"
+psu_red <- "#e64927"
+psu_orange <- "#f68b1f"
+psu_purple <- "#650360"
+```
+
+```{r import session data, include=FALSE}
+sessiondata <-read_sheet("https://docs.google.com/spreadsheets/d/1or2liAYga4IkcZme9_CBGEeJbrF6pQGEF8A8QyQDoPc/edit#gid=1512201892", "session") %>% 
+  clean_names() %>% 
+  mutate(date = as.character(date)) %>% 
+  mutate(cohort = recode(cohort, "202309" = "2324",
+                              "202312" = "2324",
+                              "202402" = "2324"))
+```
+
+
+```{r import lo text, include=FALSE}
+sess_lo <-read_sheet("https://docs.google.com/spreadsheets/d/1or2liAYga4IkcZme9_CBGEeJbrF6pQGEF8A8QyQDoPc/edit#gid=282801708", "codes_los") %>% 
+  clean_names() %>% 
+  select(sess_code:lo6) %>%
+  pivot_longer(cols = -c(title, sess_code),
+               names_to = "lo_num",
+               values_to = "lo_text",
+               values_drop_na = TRUE) 
+```
+
+```{r import registered, include=FALSE}
+registered <- read_sheet("https://docs.google.com/spreadsheets/d/1or2liAYga4IkcZme9_CBGEeJbrF6pQGEF8A8QyQDoPc/edit#gid=1274986264", "registered") %>% 
+  clean_names() %>% 
+  mutate(cohort = recode(cohort, "202309" = "2324",
+                              "202312" = "2324",
+                              "202402" = "2324"))
+```
+
+```{r}
+trainer <- sessiondata %>%
+  filter(sess_code == params$session,
+         cohort == params$cohort) %>%
+  select(trainer1) %>%
+  unique() %>% 
+  pull(trainer1)
+```
+
+```{r, include=FALSE}
+number_of_respondents <- sessiondata %>% 
+  filter(sess_code == params$session,
+         cohort == params$cohort) %>% 
+  count(sess_code) %>% 
+  pull(n)
+```
+
+
+```{r, include=FALSE}
+number_registered <- sum(registered$registered)
+```
+
+| Respondents: **`r number_of_respondents`**  
+| Registered: **`r number_registered`** 
+| Response Rate*:  **`r scales::label_percent()(number_of_respondents/number_registered)`**
+|                       *does not account for makeups or absences
+
+```{r lo-mean}
+
+lo_mean <- sessiondata %>%
+  select(cohort, sess_code, pre_lo1:post_lo6) %>% 
+  group_by(sess_code, cohort) %>%
+  summarize(pre_lo1 = mean(pre_lo1, na.rm = TRUE),
+            post_lo1 = mean(post_lo1, na.rm = TRUE),
+            pre_lo2 = mean(pre_lo2, na.rm = TRUE),
+            post_lo2 = mean(post_lo2, na.rm = TRUE),
+            pre_lo3 = mean(pre_lo3, na.rm = TRUE),
+            post_lo3 = mean(post_lo3, na.rm =TRUE),
+            pre_lo4 = mean(pre_lo4, na.rm = TRUE),
+            post_lo4 = mean(post_lo4, na.rm =TRUE),
+            pre_lo5 = mean(pre_lo5, na.rm = TRUE),
+            post_lo5 = mean(post_lo5, na.rm =TRUE),
+            pre_lo6 = mean(pre_lo6, na.rm = TRUE),
+            post_lo6 = mean(post_lo6, na.rm =TRUE)) %>% 
+  ungroup() %>% 
+  pivot_longer(cols = -c(cohort, sess_code),
+               names_to = "lo",
+               values_to = "mean",
+               values_drop_na = TRUE) %>% 
+  separate(lo, c("prepost","lo_num"), "_") %>%
+  mutate(mean_round = round(mean,1))
+
+```
+
+
+```{r}
+foobar <- lo_mean %>% 
+  left_join(sess_lo) %>% 
+  filter(sess_code == params$session,
+         cohort == params$cohort) %>% 
+  drop_na() %>%
+  mutate(lo_num = fct_rev(lo_num)) %>%
+  mutate(lo_text = str_wrap(lo_text, 40))
+
+segments <- foobar %>%
+  select(lo_num, lo_text, prepost, mean_round) %>%
+  pivot_wider(names_from = prepost,
+             values_from = mean_round)
+```
+
+|
+|
+|
+### PRE-POST Participant Self Assessed Knowledge Ratings
+
+```{r prepost-graph, fig.height=6}
+gg_dot_plot <- foobar %>% 
+  mutate(lo_text = str_wrap(lo_text, 40)) %>% 
+  ggplot(aes(x = mean_round,
+             y = lo_text,
+             color = prepost,
+             label = mean_round)) +
+  geom_segment(data = segments,
+               aes(x = pre,
+                   xend = post,
+                   y = lo_text,
+                   yend = lo_text, 
+                   colour = "grey",
+                   linewidth = 0.25), 
+                inherit.aes = FALSE) +
+  geom_point(size = 9) +
+  geom_text(family = "URWGothic", color = "white") +
+scale_color_manual(values = c(
+                     "pre" = psu_lightblue,
+                     "post" = psu_blue)) +
+  scale_x_continuous(limits = c(1, 7),
+                     labels = NULL) +
+  scale_y_discrete(expand = expansion(add = 2)) +
+  # labs(title = "<span style='color: #a5dff9'>Pre</span> and <span style='color:#008ac1;'>Post</span>  Participant Self Assessed Knowledge Rating by Learning Objective",
+  #      x = NULL) +
+  theme_minimal() +
+  theme(plot.title = element_markdown(hjust = 1, size=16),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        axis.title = element_blank(),
+        legend.position = "none") 
+  
+
+ggsave("gg_dot_plot.png",
+       gg_dot_plot,
+       width = 8)
+
+knitr::include_graphics("gg_dot_plot.png")
+```
+
+\newpage
+### Scale Ratings
+
+```{r, learnob}
+avg_learnob <- sessiondata %>%
+  select(cohort,sess_code,learnob) %>% 
+  filter(sess_code == params$session,
+         cohort == params$cohort) %>%
+  drop_na() %>% 
+  summarize(avg_learnob = mean(learnob)) %>% 
+  mutate(lo_round = round(avg_learnob,1)) %>%
+  pull(lo_round)
+
+rating_summary <- sessiondata %>%
+  select(cohort,sess_code,learnob) %>% 
+  filter(sess_code == params$session,
+         cohort == params$cohort) %>%
+  drop_na() %>% 
+  count(learnob)
+```
+
+How well were the identified **learning objectives** covered?
+
+Average Rating = <span style='color:#e64927'>**`r avg_learnob`**</span> 
+
+```{r, fig.height=1.5}
+ggplot(data = rating_summary,
+       aes(x = learnob, y = 0.1,
+           size = n)) +
+  geom_hline(yintercept = 0.1,
+             color = "grey80") +
+   annotate(geom = "point",
+           x = avg_learnob, y = 0.1,
+           shape = 124,
+           size = 15,
+           color = psu_red) +
+  geom_point() +
+  geom_text(aes(label = n),
+            vjust = -1.5,
+            color = psu_stone) +
+  scale_x_continuous(limits = c(1, 7),
+                     breaks = seq(1, 7, 1),
+                     expand = expansion(0,1)) +
+  scale_y_continuous(limits = c(0,0.2),
+                     expand = expansion(0,0)) +
+ theme_void() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(),
+        axis.ticks = element_blank(),
+        plot.margin = unit(c(0,0,0,0),
+                           "inches")) 
+
+```
+
+```{r, interaction}
+avg_interaction <- sessiondata %>%
+  select(cohort,sess_code,interaction) %>% 
+  filter(sess_code == params$session,
+         cohort == params$cohort) %>%
+  drop_na() %>% 
+  summarize(avg_interaction = mean(interaction)) %>%
+  mutate(interaction_round = round(avg_interaction,digits=1)) %>%
+  pull(interaction_round)
+
+interaction_summary <- sessiondata %>%
+  select(cohort,sess_code,interaction) %>% 
+  filter(sess_code == params$session,
+         cohort == params$cohort) %>%
+  drop_na() %>% 
+  count(interaction)
+```
+
+|
+|
+How effective was the **interaction** opportunities provided in keeping you engaged in training?
+
+Average Rating = <span style='color:#e64927'>**`r avg_interaction`**</span>  
+
+```{r, fig.height=1.5}
+ggplot(data = interaction_summary,
+       aes(x = interaction, y = 0.1,
+           size = n)) +
+  geom_hline(yintercept = 0.1,
+             color = "grey80") +
+   annotate(geom = "point",
+           x = avg_interaction, y = 0.1,
+           shape = 124,
+           size = 15,
+           color = psu_red) +
+  geom_point() +
+  geom_text(aes(label = n),
+            vjust = -1.5,
+            color = psu_stone) +
+  scale_x_continuous(limits = c(1, 7),
+                     breaks = seq(1, 7, 1),
+                     expand = expansion(0,1)) +
+  scale_y_continuous(limits = c(0,0.2),
+                     expand = expansion(0,0)) +
+ theme_void() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(),
+        axis.ticks = element_blank(),
+        plot.margin = unit(c(0,0,0,0),
+                           "inches")) 
+
+```
+
+```{r, apply}
+avg_apply <- sessiondata %>%
+  select(cohort,sess_code,apply) %>% 
+  filter(sess_code == params$session,
+         cohort == params$cohort) %>%
+  drop_na() %>% 
+  summarize(avg_apply = mean(apply)) %>%
+  mutate(apply_round = round(avg_apply,digits=1)) %>%
+  pull(apply_round)
+
+apply_summary <- sessiondata %>%
+  select(cohort,sess_code,apply) %>% 
+  filter(sess_code == params$session,
+         cohort == params$cohort) %>%
+  drop_na() %>% 
+  count(apply)
+```
+
+|
+|
+How effective was this training in preparing you to **apply** what you learned?
+
+Average Rating = <span style='color:#e64927'>**`r avg_apply`**</span>  
+
+```{r, fig.height=1.5}
+ggplot(data = apply_summary,
+       aes(x = apply, y = 0.1,
+           size = n)) +
+  geom_hline(yintercept = 0.1,
+             color = "grey80") +
+   annotate(geom = "point",
+           x = avg_apply, y = 0.1,
+           shape = 124,
+           size = 15,
+           color = psu_red) +
+  geom_point() +
+  geom_text(aes(label = n),
+            vjust = -1.5,
+            color = psu_stone) +
+  scale_x_continuous(limits = c(1, 7),
+                     breaks = seq(1, 7, 1),
+                     expand = expansion(0,1)) +
+  scale_y_continuous(limits = c(0,0.2),
+                     expand = expansion(0,0)) +
+ theme_void() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(),
+        axis.ticks = element_blank(),
+        plot.margin = unit(c(0,0,0,0),
+                           "inches")) 
+
+```
+
+\newpage
+### Participant Comments
+
+```{r}
+ sessiondata %>%
+  filter(sess_code == params$session,
+         cohort == params$cohort) %>%
+   select(effective) %>%
+  drop_na()  %>% 
+  gt() %>% 
+  tab_options(table.align = "left") %>%
+  cols_label(
+    effective = md("**Ways session was effective in advancing knowledge or skills**"))
+  
+```
+
+
+```{r}
+sessiondata %>%
+  filter(sess_code == params$session,
+         cohort == params$cohort) %>% 
+  select(support) %>% 
+  drop_na() %>% 
+  gt() %>% 
+  tab_options(table.align = "left") %>%
+  cols_label(
+    support = md("**Ways we could better support learning in this session**"))
+  
+```

@@ -1,0 +1,692 @@
+---
+title: "PPSC Evaluation Summary" 
+subtitle: "Session: Simulations" 
+date: "Date: March 7, 2024"
+
+
+params: 
+    cohort: "SIMLA6"
+output:
+     html_document:
+       df_print: paged
+       fig_width: 6
+       fig_height: 4
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      message = FALSE,
+                      warning = FALSE,
+                      cache = FALSE)
+```
+
+
+```{r library, include=FALSE}
+library(tidyverse)
+library(skimr)
+library(janitor)
+library(ggthemes)
+library(hrbrthemes)
+library(readxl)
+library(ggtext)
+library(ggalt)
+library(ragg)
+library(systemfonts)
+library(gt)
+library(knitr)
+library(pagedown)
+library(scales)
+library(googlesheets4)
+```
+
+
+```{r colors, include=FALSE}
+psu_green <- "#6d8d24"
+psu_electricgreen <- "#cfd82d"
+psu_forestgreen <- "#213921"
+psu_blue <- "#008ac1"
+psu_lightblue <- "#a5dff9"
+psu_sand <- "#e8d3a2"
+psu_stone <- "#8a8a67"
+psu_yellow <- "#ffc20e"
+psu_red <- "#e64927"
+psu_orange <- "#f68b1f"
+psu_purple <- "#650360"
+```
+
+```{r import session data, include=FALSE}
+simdata <-read_sheet("https://docs.google.com/spreadsheets/d/1szz50CzAS9dwJR-Uqljt7YKeaEE5qCpip-dUCfXD24M/edit#gid=2038982676", "simulations") %>% 
+  clean_names() %>% 
+  mutate(date = as.character(date)) %>% 
+  mutate(cohort = recode(cohort, "20231127" = "SIMLA6",
+                         "20240129" = "SIMLA6",
+                         "20240304" = "SIMLA6",
+                         "20240401" = "SIMLA6",
+                         "20240429" = "SIMLA6",
+                         "20240603" = "SIMLA6"))
+```
+
+
+```{r import lo text, include=FALSE}
+sess_lo <-read_sheet("https://docs.google.com/spreadsheets/d/1szz50CzAS9dwJR-Uqljt7YKeaEE5qCpip-dUCfXD24M/edit#gid=1575859612", "codes_los") %>%  
+  clean_names() %>% 
+  select(sess_code:lo4) %>%
+  pivot_longer(cols = -c(title, sess_code),
+               names_to = "lo_num",
+               values_to = "lo_text",
+               values_drop_na = TRUE) 
+```
+
+```{r import overall data, include=FALSE}
+overalldata <-read_sheet("https://docs.google.com/spreadsheets/d/1szz50CzAS9dwJR-Uqljt7YKeaEE5qCpip-dUCfXD24M/edit#gid=165537806", "overall") %>% 
+  clean_names() %>% 
+  mutate(date = as.character(date)) %>% 
+  mutate(cohort = recode(cohort, "20231127" = "SIMLA6",
+                         "20240129" = "SIMLA6",
+                         "20240304" = "SIMLA6",
+                         "20240401" = "SIMLA6",
+                         "20240429" = "SIMLA6",
+                         "20240603" = "SIMLA6"))
+```
+
+```{r import registered, include=FALSE}
+registered <- read_sheet("https://docs.google.com/spreadsheets/d/1szz50CzAS9dwJR-Uqljt7YKeaEE5qCpip-dUCfXD24M/edit#gid=1491010096", "registered") %>% 
+  clean_names() %>% 
+  mutate(cohort = recode(cohort, "20231127" = "SIMLA6",
+                         "20240129" = "SIMLA6",
+                         "20240304" = "SIMLA6",
+                         "20240401" = "SIMLA6",
+                         "20240429" = "SIMLA6",
+                         "20240603" = "SIMLA6"))
+```
+
+
+|
+|
+
+```{r, include=FALSE}
+number_of_respondents <- simdata %>% 
+  filter(cohort == params$cohort) %>% 
+  count(cohort) %>% 
+  pull(n)
+```
+
+
+```{r, include=FALSE}
+filter_registered <- registered %>% 
+  filter(cohort == params$cohort)
+
+number_registered <- sum(filter_registered$registered)
+```
+
+| Respondents: **`r number_of_respondents`**  
+| Registered: **`r number_registered`** 
+| Response Rate*:  **`r scales::label_percent()(number_of_respondents/number_registered)`**
+|                       *does not account for makeups or absences
+
+```{r lo-mean}
+
+lo_mean <- simdata %>%
+  select(cohort, sess_code, pre_lo1, post_lo1,pre_lo2,post_lo2, pre_lo3, post_lo3) %>% 
+  group_by(cohort, sess_code) %>%
+  summarize(pre_lo1 = mean(pre_lo1, na.rm = TRUE),
+            post_lo1 = mean(post_lo1, na.rm = TRUE),
+            pre_lo2 = mean(pre_lo2, na.rm = TRUE),
+            post_lo2 = mean(post_lo2, na.rm = TRUE),
+            pre_lo3 = mean(pre_lo2, na.rm = TRUE),
+            post_lo3 = mean(post_lo2, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  pivot_longer(cols = -c(cohort, sess_code),
+               names_to = "lo",
+               values_to = "mean",
+               values_drop_na = TRUE) %>% 
+  separate(lo, c("prepost","lo_num"), "_") %>%
+  mutate(mean_round = round(mean,1))
+
+```
+
+
+```{r}
+foobar <- lo_mean %>% 
+  left_join(sess_lo) %>% 
+  filter(cohort == params$cohort) %>% 
+  drop_na() %>%
+  mutate(lo_num = fct_rev(lo_num)) %>%
+  mutate(lo_text = str_wrap(lo_text, 40))
+
+segments <- foobar %>%
+  select(lo_num, lo_text, prepost, mean_round) %>%
+  pivot_wider(names_from = prepost,
+             values_from = mean_round)
+```
+
+|
+|
+|
+
+### PRE-POST Participant Self Assessed Ratings
+
+```{r prepost-graph, fig.height=6}
+gg_dot_plot <- foobar %>% 
+  mutate(lo_text = str_wrap(lo_text, 40)) %>% 
+  ggplot(aes(x = mean_round,
+             y = lo_text,
+             color = prepost,
+             label = mean_round)) +
+  geom_segment(data = segments,
+               aes(x = pre,
+                   xend = post,
+                   y = lo_text,
+                   yend = lo_text, 
+                   colour = "grey",
+                   linewidth = 0.25), 
+                inherit.aes = FALSE) +
+  geom_point(size = 9) +
+  geom_text(family = "URWGothic", color = "white") +
+scale_color_manual(values = c(
+                     "pre" = psu_lightblue,
+                     "post" = psu_blue)) +
+  scale_x_continuous(limits = c(1, 7),
+                     labels = NULL) +
+  scale_y_discrete(expand = expansion(add = 2)) +
+  # labs(title = "<span style='color: #a5dff9'>Pre</span> and <span style='color:#008ac1;'>Post</span>  Participant Self Assessed Rating by Learning Objective",
+  #      x = NULL) +
+  theme_minimal() +
+  theme(plot.title = element_markdown(hjust = 1, size=16),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        axis.title = element_blank(),
+        legend.position = "none") 
+  
+
+ggsave("gg_dot_plot.png",
+       gg_dot_plot,
+       width = 8)
+
+knitr::include_graphics("gg_dot_plot.png")
+```
+
+\newpage
+### Direct Examination Scale Ratings
+
+```{r direct practice}
+avg_directpractice <- simdata %>%
+  select(cohort,direct_practice) %>% 
+  filter(cohort == params$cohort) %>%
+  drop_na() %>% 
+  summarize(avg_directpractice = mean(direct_practice)) %>% 
+  mutate(directpractice_round = round(avg_directpractice,1)) %>%
+  pull(directpractice_round)
+
+rating_summary <- simdata %>%
+  select(cohort,direct_practice) %>% 
+  filter(cohort == params$cohort) %>%
+  drop_na() %>% 
+  count(direct_practice)
+```
+
+How effective was the direct examination simulation as a **practice opportunity**?
+
+Average Rating = <span style='color:#e64927'>**`r avg_directpractice`**</span>  
+
+```{r, fig.height=1.5}
+ggplot(data = rating_summary,
+       aes(x = direct_practice, y = 0.1,
+           size = n)) +
+  geom_hline(yintercept = 0.1,
+             color = "grey80") +
+   annotate(geom = "point",
+           x = avg_directpractice, y = 0.1,
+           shape = 124,
+           size = 15,
+           color = psu_red) +
+  geom_point() +
+  geom_text(aes(label = n),
+            vjust = -1.5,
+            color = psu_stone) +
+  scale_x_continuous(limits = c(1, 7),
+                     breaks = seq(1, 7, 1),
+                     expand = expansion(0,1)) +
+  scale_y_continuous(limits = c(0,0.2),
+                     expand = expansion(0,0)) +
+ theme_void() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(),
+        axis.ticks = element_blank(),
+        plot.margin = unit(c(0,0,0,0),
+                           "inches")) 
+
+```
+
+```{r direct feedback}
+avg_directfeedback <- simdata %>%
+  select(cohort,direct_feedback) %>% 
+  filter(cohort == params$cohort) %>%
+  drop_na() %>% 
+  summarize(avg_directfeedback = mean(direct_feedback)) %>% 
+  mutate(directfeedback_round = round(avg_directfeedback,1)) %>%
+  pull(directfeedback_round)
+
+rating_summary <- simdata %>%
+  select(cohort,direct_feedback) %>% 
+  filter(cohort == params$cohort) %>%
+  drop_na() %>% 
+  count(direct_feedback)
+```
+
+How effective was the **feedback** you received after the direct examination simulation in supporting your learning?
+
+Average Rating = <span style='color:#e64927'>**`r avg_directfeedback`**</span>  
+
+```{r, fig.height=1.5}
+ggplot(data = rating_summary,
+       aes(x = direct_feedback, y = 0.1,
+           size = n)) +
+  geom_hline(yintercept = 0.1,
+             color = "grey80") +
+   annotate(geom = "point",
+           x = avg_directfeedback, y = 0.1,
+           shape = 124,
+           size = 15,
+           color = psu_red) +
+  geom_point() +
+  geom_text(aes(label = n),
+            vjust = -1.5,
+            color = psu_stone) +
+  scale_x_continuous(limits = c(1, 7),
+                     breaks = seq(1, 7, 1),
+                     expand = expansion(0,1)) +
+  scale_y_continuous(limits = c(0,0.2),
+                     expand = expansion(0,0)) +
+ theme_void() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(),
+        axis.ticks = element_blank(),
+        plot.margin = unit(c(0,0,0,0),
+                           "inches")) 
+
+```
+
+```{r direct support}
+avg_directsupport <- simdata %>%
+  select(cohort,direct_support) %>% 
+  filter(cohort == params$cohort) %>%
+  drop_na() %>% 
+  summarize(avg_directsupport = mean(direct_support)) %>% 
+  mutate(directsupport_round = round(avg_directsupport,1)) %>%
+  pull(directsupport_round)
+
+rating_summary <- simdata %>%
+  select(cohort,direct_support) %>% 
+  filter(cohort == params$cohort) %>%
+  drop_na() %>% 
+  count(direct_support)
+```
+
+To what extent did you receive the **support, information and resources** you needed to prepare for the direct examination simulation?
+
+Average Rating = <span style='color:#e64927'>**`r avg_directsupport`**</span>  
+
+```{r, fig.height=1.5}
+ggplot(data = rating_summary,
+       aes(x = direct_support, y = 0.1,
+           size = n)) +
+  geom_hline(yintercept = 0.1,
+             color = "grey80") +
+   annotate(geom = "point",
+           x = avg_directsupport, y = 0.1,
+           shape = 124,
+           size = 15,
+           color = psu_red) +
+  geom_point() +
+  geom_text(aes(label = n),
+            vjust = -1.5,
+            color = psu_stone) +
+  scale_x_continuous(limits = c(1, 7),
+                     breaks = seq(1, 7, 1),
+                     expand = expansion(0,1)) +
+  scale_y_continuous(limits = c(0,0.2),
+                     expand = expansion(0,0)) +
+ theme_void() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(),
+        axis.ticks = element_blank(),
+        plot.margin = unit(c(0,0,0,0),
+                           "inches")) 
+
+```
+
+\newpage
+### Cross Examination Scale Ratings
+
+```{r cross practice}
+avg_crosspractice <- simdata %>%
+  select(cohort,cross_practice) %>% 
+  filter(cohort == params$cohort) %>%
+  drop_na() %>% 
+  summarize(avg_crosspractice = mean(cross_practice)) %>% 
+  mutate(crosspractice_round = round(avg_crosspractice,1)) %>%
+  pull(crosspractice_round)
+
+rating_summary <- simdata %>%
+  select(cohort,cross_practice) %>% 
+  filter(cohort == params$cohort) %>%
+  drop_na() %>% 
+  count(cross_practice)
+```
+
+How effective was the cross examination simulation as a **practice opportunity**?
+
+Average Rating = <span style='color:#e64927'>**`r avg_crosspractice`**</span>  
+
+```{r, fig.height=1.5}
+ggplot(data = rating_summary,
+       aes(x = cross_practice, y = 0.1,
+           size = n)) +
+  geom_hline(yintercept = 0.1,
+             color = "grey80") +
+   annotate(geom = "point",
+           x = avg_crosspractice, y = 0.1,
+           shape = 124,
+           size = 15,
+           color = psu_red) +
+  geom_point() +
+  geom_text(aes(label = n),
+            vjust = -1.5,
+            color = psu_stone) +
+  scale_x_continuous(limits = c(1, 7),
+                     breaks = seq(1, 7, 1),
+                     expand = expansion(0,1)) +
+  scale_y_continuous(limits = c(0,0.2),
+                     expand = expansion(0,0)) +
+ theme_void() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(),
+        axis.ticks = element_blank(),
+        plot.margin = unit(c(0,0,0,0),
+                           "inches")) 
+
+```
+
+```{r cross feedback}
+avg_crossfeedback <- simdata %>%
+  select(cohort,cross_feedback) %>% 
+  filter(cohort == params$cohort) %>%
+  drop_na() %>% 
+  summarize(avg_crossfeedback = mean(cross_feedback)) %>% 
+  mutate(crossfeedback_round = round(avg_crossfeedback,1)) %>%
+  pull(crossfeedback_round)
+
+rating_summary <- simdata %>%
+  select(cohort,cross_feedback) %>% 
+  filter(cohort == params$cohort) %>%
+  drop_na() %>% 
+  count(cross_feedback)
+```
+
+How effective was the **feedback** you received after the cross examination simulation in supporting your learning?
+
+Average Rating = <span style='color:#e64927'>**`r avg_crossfeedback`**</span>  
+
+```{r, fig.height=1.5}
+ggplot(data = rating_summary,
+       aes(x = cross_feedback, y = 0.1,
+           size = n)) +
+  geom_hline(yintercept = 0.1,
+             color = "grey80") +
+   annotate(geom = "point",
+           x = avg_crossfeedback, y = 0.1,
+           shape = 124,
+           size = 15,
+           color = psu_red) +
+  geom_point() +
+  geom_text(aes(label = n),
+            vjust = -1.5,
+            color = psu_stone) +
+  scale_x_continuous(limits = c(1, 7),
+                     breaks = seq(1, 7, 1),
+                     expand = expansion(0,1)) +
+  scale_y_continuous(limits = c(0,0.2),
+                     expand = expansion(0,0)) +
+ theme_void() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(),
+        axis.ticks = element_blank(),
+        plot.margin = unit(c(0,0,0,0),
+                           "inches")) 
+
+```
+
+```{r cross support}
+avg_crosssupport <- simdata %>%
+  select(cohort,cross_support) %>% 
+  filter(cohort == params$cohort) %>%
+  drop_na() %>% 
+  summarize(avg_crosssupport = mean(cross_support)) %>% 
+  mutate(crosssupport_round = round(avg_crosssupport,1)) %>%
+  pull(crosssupport_round)
+
+rating_summary <- simdata %>%
+  select(cohort,cross_support) %>% 
+  filter(cohort == params$cohort) %>%
+  drop_na() %>% 
+  count(cross_support)
+```
+
+To what extent did you receive the **support, information and resources** you needed to prepare for the cross examination simulation?
+
+Average Rating = <span style='color:#e64927'>**`r avg_crosssupport`**</span>  
+
+```{r, fig.height=1.5}
+ggplot(data = rating_summary,
+       aes(x = cross_support, y = 0.1,
+           size = n)) +
+  geom_hline(yintercept = 0.1,
+             color = "grey80") +
+   annotate(geom = "point",
+           x = avg_crosssupport, y = 0.1,
+           shape = 124,
+           size = 15,
+           color = psu_red) +
+  geom_point() +
+  geom_text(aes(label = n),
+            vjust = -1.5,
+            color = psu_stone) +
+  scale_x_continuous(limits = c(1, 7),
+                     breaks = seq(1, 7, 1),
+                     expand = expansion(0,1)) +
+  scale_y_continuous(limits = c(0,0.2),
+                     expand = expansion(0,0)) +
+ theme_void() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(),
+        axis.ticks = element_blank(),
+        plot.margin = unit(c(0,0,0,0),
+                           "inches")) 
+
+```
+
+\newpage
+### Case Presentation Scale Ratings
+
+```{r case practice}
+avg_casepractice <- simdata %>%
+  select(cohort,case_practice) %>% 
+  filter(cohort == params$cohort) %>%
+  drop_na() %>% 
+  summarize(avg_casepractice = mean(case_practice)) %>% 
+  mutate(casepractice_round = round(avg_casepractice,1)) %>%
+  pull(casepractice_round)
+
+rating_summary <- simdata %>%
+  select(cohort,case_practice) %>% 
+  filter(cohort == params$cohort) %>%
+  drop_na() %>% 
+  count(case_practice)
+```
+
+How effective was the case presentation simulation as a **practice opportunity**?
+
+Average Rating = <span style='color:#e64927'>**`r avg_casepractice`**</span>  
+
+```{r, fig.height=1.5}
+ggplot(data = rating_summary,
+       aes(x = case_practice, y = 0.1,
+           size = n)) +
+  geom_hline(yintercept = 0.1,
+             color = "grey80") +
+   annotate(geom = "point",
+           x = avg_casepractice, y = 0.1,
+           shape = 124,
+           size = 15,
+           color = psu_red) +
+  geom_point() +
+  geom_text(aes(label = n),
+            vjust = -1.5,
+            color = psu_stone) +
+  scale_x_continuous(limits = c(1, 7),
+                     breaks = seq(1, 7, 1),
+                     expand = expansion(0,1)) +
+  scale_y_continuous(limits = c(0,0.2),
+                     expand = expansion(0,0)) +
+ theme_void() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(),
+        axis.ticks = element_blank(),
+        plot.margin = unit(c(0,0,0,0),
+                           "inches")) 
+
+```
+
+```{r case feedback}
+avg_casefeedback <- simdata %>%
+  select(cohort,case_feedback) %>% 
+  filter(cohort == params$cohort) %>%
+  drop_na() %>% 
+  summarize(avg_casefeedback = mean(case_feedback)) %>% 
+  mutate(casefeedback_round = round(avg_casefeedback,1)) %>%
+  pull(casefeedback_round)
+
+rating_summary <- simdata %>%
+  select(cohort,case_feedback) %>% 
+  filter(cohort == params$cohort) %>%
+  drop_na() %>% 
+  count(case_feedback)
+```
+
+How effective was the **feedback** you received after the cross examination simulation in supporting your learning?
+
+Average Rating = <span style='color:#e64927'>**`r avg_crossfeedback`**</span>  
+
+```{r, fig.height=1.5}
+ggplot(data = rating_summary,
+       aes(x = case_feedback, y = 0.1,
+           size = n)) +
+  geom_hline(yintercept = 0.1,
+             color = "grey80") +
+   annotate(geom = "point",
+           x = avg_casefeedback, y = 0.1,
+           shape = 124,
+           size = 15,
+           color = psu_red) +
+  geom_point() +
+  geom_text(aes(label = n),
+            vjust = -1.5,
+            color = psu_stone) +
+  scale_x_continuous(limits = c(1, 7),
+                     breaks = seq(1, 7, 1),
+                     expand = expansion(0,1)) +
+  scale_y_continuous(limits = c(0,0.2),
+                     expand = expansion(0,0)) +
+ theme_void() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(),
+        axis.ticks = element_blank(),
+        plot.margin = unit(c(0,0,0,0),
+                           "inches")) 
+
+```
+
+```{r case support}
+avg_casesupport <- simdata %>%
+  select(cohort,case_support) %>% 
+  filter(cohort == params$cohort) %>%
+  drop_na() %>% 
+  summarize(avg_casesupport = mean(case_support)) %>% 
+  mutate(casesupport_round = round(avg_casesupport,1)) %>%
+  pull(casesupport_round)
+
+rating_summary <- simdata %>%
+  select(cohort,case_support) %>% 
+  filter(cohort == params$cohort) %>%
+  drop_na() %>% 
+  count(case_support)
+```
+
+```{r, fig.height=1.5}
+ggplot(data = rating_summary,
+       aes(x = case_support, y = 0.1,
+           size = n)) +
+  geom_hline(yintercept = 0.1,
+             color = "grey80") +
+   annotate(geom = "point",
+           x = avg_casesupport, y = 0.1,
+           shape = 124,
+           size = 15,
+           color = psu_red) +
+  geom_point() +
+  geom_text(aes(label = n),
+            vjust = -1.5,
+            color = psu_stone) +
+  scale_x_continuous(limits = c(1, 7),
+                     breaks = seq(1, 7, 1),
+                     expand = expansion(0,1)) +
+  scale_y_continuous(limits = c(0,0.2),
+                     expand = expansion(0,0)) +
+ theme_void() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(),
+        axis.ticks = element_blank(),
+        plot.margin = unit(c(0,0,0,0),
+                           "inches")) 
+```
+
+\newpage
+### Participant Comments
+
+```{r}
+ simdata %>%
+  filter(cohort == params$cohort) %>%
+   select(adv_skills) %>%
+  drop_na()  %>% 
+  gt() %>% 
+  tab_options(table.align = "left") %>%
+  cols_label(
+    adv_skills = md("**Ways simulations were effective in advancing skills**"))
+  
+```
+
+
+```{r}
+simdata %>%
+  filter(cohort == params$cohort) %>% 
+  select(more_effect) %>% 
+  drop_na() %>% 
+  gt() %>% 
+  tab_options(table.align = "left") %>%
+  cols_label(
+    more_effect = md("**How simulations could have been a more effective learning opportunity**"))
+  
+```
+
+```{r}
+overalldata %>%
+  filter(cohort == params$cohort) %>% 
+  select(video_review_feedback) %>% 
+  drop_na() %>% 
+  gt() %>% 
+  tab_options(table.align = "left") %>%
+  cols_label(
+    video_review_feedback = md("**Please share any feedback that you have on the simulation video review process**"))
+```
+

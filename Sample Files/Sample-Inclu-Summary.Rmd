@@ -1,0 +1,220 @@
+---
+title: "Inclusion Summary"
+subtitle: "Training: Preparing and Presenting for Success in Court"
+date: "October-December 2022"
+
+params:
+  cohort: "2123Q6"
+
+output: 
+  html_document:
+    df_print: paged
+    fig_width: 8
+---
+<!-- NEEDED INFORMATION - LOOK HERE
+To make this work, we need to change the names of the cohorts of the quarter to the same name.
+Do this in the "r excel file" chunk (starting line 65). Change name to YYYYQN (ex. 2123Q6).
+Update cohort parameter in YAML to new quarter cohort.-->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      message = FALSE,
+                      warning = FALSE,
+                      cache = FALSE)
+```
+
+```{r library, include=FALSE}
+library(tidyverse)
+library(skimr)
+library(janitor)
+library(ggthemes)
+library(hrbrthemes)
+library(readxl)
+library(ggtext)
+library(ggalt)
+library(ragg)
+library(systemfonts)
+library(gt)
+library(knitr)
+library(pagedown)
+library(dplyr)
+library(scales)
+library(lubridate)
+library(ggplot2)
+```
+
+```{r colors, include=FALSE}
+psu_green <- "#6d8d24"
+psu_electricgreen <- "#cfd82d"
+psu_forestgreen <- "#213921"
+psu_blue <- "#008ac1"
+psu_lightblue <- "#a5dff9"
+psu_sand <- "#e8d3a2"
+psu_stone <- "#8a8a67"
+psu_yellow <- "#ffc20e"
+psu_red <- "#e64927"
+psu_orange <- "#f68b1f"
+psu_purple <- "#650360"
+```
+
+```{r excel file, include=FALSE}
+ppsc_inclusion <- read_excel(path = "I:\\Staff\\GSSW\\SALEM\\DATA ENTRY\\4. PPSC\\ZArchive\\PPSC DB 2021-23.xlsx",
+                                   sheet = "Overall") %>% 
+  clean_names() %>% 
+  select(cohort, id_trainers, id_students, id) %>% 
+  mutate(cohort = if_else(cohort == "202210", "2123Q6", cohort)) %>% 
+  mutate(cohort = if_else(cohort == "202212", "2123Q6", cohort))
+```
+
+```{r number respondents, include=FALSE}
+number_respondents_inclusion <- ppsc_inclusion %>% 
+  filter(cohort == params$cohort) %>% 
+  count(cohort) %>% 
+  pull(n)
+```
+
+Number of Respondents in Quarter: **`r number_respondents_inclusion`**
+
+```{r}
+ppsc_inclusion_labeled <- ppsc_inclusion %>% 
+  mutate(id_trainers = recode(id_trainers, "1" = "Disagree",
+                              "2" = "Somewhat Disagree",
+                              "3" = "Neutral",
+                              "4" = "Somewhat Agree",
+                              "5" = "Agree")) %>% 
+  mutate(id_students = recode(id_students, "1" = "Disagree",
+                              "2" = "Somewhat Disagree",
+                              "3" = "Neutral",
+                              "4" = "Somewhat Agree",
+                              "5" = "Agree"))
+
+ppsc_inclusion_scales <- ppsc_inclusion_labeled %>%
+  select(-id) %>% 
+  pivot_longer(cols = -cohort,
+               names_to = "scale",
+               values_to = "rating",
+               values_drop_na = TRUE)
+```
+
+```{r trainers, fig.height = 3.5, fig.width = 7}
+ppsc_inclusion_scales %>%
+  filter(cohort == params$cohort,
+         scale == "id_trainers") %>% 
+  drop_na() %>% 
+  count(cohort, scale, rating) %>% 
+  mutate(pct = n / sum(n)) %>% 
+  mutate(rating = fct_relevel(rating, c("Agree",
+                     "Somewhat Agree",
+                     "Neutral",
+                     "Somewhat Disagree",
+                     "Disagree")),
+         rating = fct_explicit_na(rating, na_level = "missing")) %>% 
+  ggplot(aes(x = pct,
+             y = rating,
+             fill = rating)) +
+    scale_fill_manual(values = c(
+                     "Agree" = psu_green,
+                     "Somewhat Agree" = psu_electricgreen,
+                     "Neutral" = psu_sand,
+                     "Somewhat Disagree" = psu_yellow,
+                     "Disagree" = psu_orange)) +
+  geom_col(show.legend = TRUE,
+           position = "dodge") +
+  geom_text(aes(label = scales::percent(pct, accuracy = 1)),
+            color = "black",
+            hjust = -0.2,
+            size = 3) +
+  scale_x_continuous(expand = expansion(add = c(0,0.2)),
+                     labels = NULL) +
+  labs(title = "I felt respected based on my identities by <span style = 'color: #008ac1'>trainers/staff</span>",
+       fill = "") +
+  theme_minimal() +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.y = element_blank(),
+        axis.title = element_blank(),
+        plot.title = element_markdown(face = "bold"))
+```
+
+```{r peers, fig.height = 3.5, fig.width = 7}
+ppsc_inclusion_scales %>% 
+  filter(cohort == params$cohort,
+         scale == "id_students") %>% 
+  drop_na() %>% 
+  count(cohort, scale, rating) %>% 
+  mutate(pct = n / sum(n)) %>% 
+  mutate(rating = fct_relevel(rating, c("Agree",
+                     "Somewhat Agree",
+                     "Neutral",
+                     "Somewhat Disagree",
+                     "Disagree")),
+         rating = fct_explicit_na(rating, na_level = "missing")) %>% 
+  ggplot(aes(x = pct,
+             y = rating,
+             fill = rating)) +
+    scale_fill_manual(values = c(
+                     "Agree" = psu_green,
+                     "Somewhat Agree" = psu_electricgreen,
+                     "Neutral" = psu_sand,
+                     "Somewhat Disagree" = psu_yellow,
+                     "Disagree" = psu_orange)) +
+  geom_col(show.legend = TRUE,
+           position = "dodge") +
+  geom_text(aes(label = scales::percent(pct, accuracy = 1)),
+            color = "black",
+            hjust = -0.2,
+            size = 3) +
+  scale_x_continuous(expand = expansion(add = c(0,0.2)),
+                     labels = NULL) +
+  labs(title = "I felt respected based on my identities by <span style = 'color: #650360'>peers</span>",
+       fill = "") +
+  theme_minimal() +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.y = element_blank(),
+        axis.title = element_blank(),
+        plot.title = element_markdown(face = "bold"))
+```
+
+### Open-Ended Question Responses
+
+*Responses on Scale Questions*
+
+```{r agree/somewhat agree responses}
+ppsc_inclusion_labeled %>% 
+  filter(cohort == params$cohort,
+         id_trainers %in% c("Agree", "Somewhat Agree")|id_students %in% c("Agree", "Somewhat Agree")) %>% 
+  select(id) %>% 
+  drop_na()  %>% 
+  distinct() %>% 
+  gt() %>% 
+  tab_options(table.align = "left") %>% 
+  cols_label(
+    id = md("**Agree/Somewhat Agree**"))
+```
+
+```{r neutral responses}
+ppsc_inclusion_labeled %>% 
+  filter(cohort == params$cohort,
+         id_trainers == "Neutral"|id_students == "Neutral") %>% 
+  select(id) %>% 
+  drop_na()  %>% 
+  distinct() %>% 
+  gt() %>% 
+  tab_options(table.align = "left") %>% 
+  cols_label(
+    id = md("**Neutral**"))
+```
+
+```{r disagree/somewhat disagree responses}
+ppsc_inclusion_labeled %>% 
+  filter(cohort == params$cohort,
+         id_trainers %in% c("Disagree", "Somewhat Disagree")|id_students %in% c("Disagree", "Somewhat Disagree")) %>% 
+  select(id) %>% 
+  drop_na()  %>%
+  distinct() %>% 
+  gt() %>% 
+  tab_options(table.align = "left") %>% 
+  cols_label(
+    id = md("**Disagree/Somewhat Disagree**"))
+```

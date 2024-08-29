@@ -1,0 +1,32 @@
+---
+title: "Sample-Codes"
+author: "Kayley Garaventa"
+date: "2023-10-17"
+output: html_document
+---
+
+This is where I will house sample code I have either figured out on own or with help from the internet.
+
+Use the following in a code chunk when wanting to add a value from a function to a title (especially in th elabs function):
+paste("Average = ", avg_trainers, sep = "")
+
+Use the following when wanting to run code based on whether or not a variable exists:
+number_highend <- if (any(na.omit(aes_inclusion_comments == 5|6|7))) {
+  aes_inclusion_comments %>%
+    filter(id_trainer %in% c("5", "6", "7")) %>%
+    count(quarter) %>%
+    pull(n)
+} else {
+  print("0")
+}
+
+Another way to do the above:
+number_positive <- if (sum(str_detect(aes_inclusion_comments$id_code, ".1$")) > 0) {
+  aes_inclusion_comments %>%
+    filter(str_detect(id_code, ".1")) %>%
+    distinct(id_comment, .keep_all = TRUE) %>% 
+    count(quarter) %>%
+    pull(n)
+} else {
+  print("0")
+}

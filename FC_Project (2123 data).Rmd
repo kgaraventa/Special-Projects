@@ -1,0 +1,216 @@
+---
+title: "Family Conditions Evaluation Summary" 
+subtitle: "Overall" 
+date: "Dates: May 31 - June 2, 2023"
+
+params: 
+    cohort: "202109"
+output:
+     html_document:
+       df_print: paged
+       fig_width: 8
+       fig_height: 3
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      message = FALSE,
+                      warning = FALSE)
+
+library(tidyverse)
+library(skimr)
+library(janitor)
+library(ggthemes)
+library(hrbrthemes)
+library(readxl)
+library(ggtext)
+library(ggalt)
+library(ragg)
+library(systemfonts)
+library(gt)
+library(knitr)
+library(pagedown)
+```
+
+
+```{r}
+psu_green <- "#6d8d24"
+psu_electricgreen <- "#cfd82d"
+psu_forestgreen <- "#213921"
+psu_blue <- "#008ac1"
+psu_lightblue <- "#a5dff9"
+psu_sand <- "#e8d3a2"
+psu_stone <- "#8a8a67"
+psu_yellow <- "#ffc20e"
+psu_red <- "#e64927"
+psu_orange <- "#f68b1f"
+psu_purple <- "#650360"
+```
+
+
+
+```{r}
+fc_overall <-read_excel(path = "I:\\Staff\\GSSW\\SALEM\\DATA ENTRY\\3. Family Conditions\\Family Conditions DB 2021-2023.xlsx",
+                                   sheet = "Overall") %>% 
+  clean_names() %>% 
+  select(cohort, date, format, overall, usefulness, liked_best, to_improve)
+```
+
+```{r import registered, include=FALSE}
+fc_registered <- read_excel(path = "I:\\Staff\\GSSW\\SALEM\\DATA ENTRY\\3. Family Conditions\\Family Conditions DB 2021-2023.xlsx",
+                                   sheet = "Registered") %>% 
+  clean_names() 
+```
+
+```{r, include=FALSE}
+number_of_respondents_overall <- fc_overall %>% 
+  filter(cohort == params$cohort) %>% 
+  count(cohort) %>% 
+  pull(n)
+```
+
+```{r, include=FALSE}
+number_registered <- fc_registered %>% 
+  filter(cohort == params$cohort) %>% 
+  pull(registered)
+```
+
+| Respondents: **`r number_of_respondents_overall`**  
+| Registered: **`r number_registered`** 
+| Response Rate*:  **`r scales::label_percent()(number_of_respondents_overall/number_registered)`**
+|                       *does not account for makeups or absences
+
+
+
+
+```{r}
+fc_overallscales <- fc_overall  %>%
+  select(cohort, overall, usefulness) %>% 
+  mutate(overall = factor(case_when(
+    overall == "5" ~ "Excellent",
+    overall == "4" ~ "Very Good",
+    overall == "3" ~ "Good",
+    overall == "2" ~ "Fair",
+    overall == "1" ~ "Needs Improvement",
+    TRUE ~ NA_character_))) %>% 
+  mutate(usefulness = factor(case_when(
+    usefulness == "5" ~ "Very Useful",
+    usefulness == "4" ~ "Mostly Useful",
+    usefulness == "3" ~ "Somewhat Useful",
+    usefulness == "2" ~ "Slightly Useful",
+    usefulness == "1" ~ "Not At All Useful",
+    TRUE ~ NA_character_))) %>%
+  pivot_longer(cols = -cohort,
+               names_to = "scale",
+               values_to = "rating",
+               values_drop_na = TRUE) %>%
+  count(cohort, scale, rating) %>% 
+  group_by(cohort, scale) %>% 
+  mutate(pct = n / sum(n))
+```
+
+
+### Overall Rating
+
+```{r overall, fig.height = 3.5}
+fc_overallscales %>% 
+  filter(cohort == params$cohort,
+         scale == "overall") %>% 
+  drop_na() %>% 
+  mutate(rating = fct_relevel(rating, c("Excellent",
+                     "Very Good",
+                     "Good",
+                     "Fair",
+                     "Needs Improvement")),
+         rating = fct_explicit_na(rating, na_level = "missing")) %>% 
+  ggplot(aes(x = pct,
+             y = rating,
+             fill = rating)) +
+    scale_fill_manual(values = c(
+                     "Excellent" = psu_green,
+                     "Very Good" = psu_electricgreen,
+                     "Good" = psu_sand,
+                     "Fair" = psu_yellow,
+                     "Needs Improvement" = psu_orange)) +
+  geom_col(show.legend = FALSE,
+           position = "dodge") +
+  geom_text(aes(label = scales::percent(pct, accuracy = 1)),
+            color = "black",
+            hjust = 0,
+            size = 3) +
+  scale_x_continuous(labels = NULL) +
+  theme_minimal() +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.y = element_blank(),
+        axis.title = element_blank(),
+        plot.title = element_markdown())
+
+```
+
+### Usefulness Rating
+
+```{r usefulness, fig.height = 3.5}
+fc_overallscales %>% 
+  filter(cohort == params$cohort,
+         scale == "usefulness") %>% 
+  drop_na() %>% 
+  mutate(rating = fct_relevel(rating, c("Very Useful",
+                     "Mostly Useful",
+                     "Somewhat Useful",
+                     "Slightly Useful",
+                     "Not At All Useful")),
+         rating = fct_explicit_na(rating, na_level = "missing")) %>% 
+  ggplot(aes(x = pct,
+             y = rating,
+             fill = rating)) +
+    scale_fill_manual(values = c(
+                     "Very Useful" = psu_green,
+                     "Mostly Useful" = psu_electricgreen,
+                     "Somewhat Useful" = psu_sand,
+                     "Slightly Useful" = psu_yellow,
+                     "Not At All Useful" = psu_orange)) +
+  geom_col(show.legend = FALSE,
+           position = "dodge") +
+  geom_text(aes(label = scales::percent(pct, accuracy = 1)),
+            color = "black",
+            hjust = 0,
+            size = 3) +
+  scale_x_continuous(labels = NULL) +
+  theme_minimal() +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.y = element_blank(),
+        axis.title = element_blank(),
+        plot.title = element_markdown())
+
+```
+
+
+### Participant Comments
+
+```{r}
+ fc_overall %>%
+  filter(cohort == params$cohort) %>%
+   select(liked_best) %>%
+  drop_na()  %>% 
+  gt() %>% 
+  tab_options(table.align = "left") %>%
+  cols_label(
+    liked_best = md("**Liked Best**"))
+  
+```
+
+
+```{r}
+fc_overall %>%
+  filter(cohort == params$cohort) %>% 
+  select(to_improve) %>% 
+  drop_na() %>% 
+  gt() %>% 
+  tab_options(table.align = "left") %>%
+  cols_label(
+    to_improve = md("**To Improve**"))
+  
+```

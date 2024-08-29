@@ -1,0 +1,461 @@
+---
+title: "Training: Sexual Abuse (EE) and Dynamics of Sexual Offending (FC)" 
+subtitle: "Essential Elements/Family Conditions Comparison Project"
+
+params: 
+    session: "SECR"
+output:
+     html_document:
+       df_print: paged
+       fig_width: 8
+       fig_height: 3
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      message = FALSE,
+                      warning = FALSE)
+
+library(tidyverse)
+library(skimr)
+library(janitor)
+library(ggthemes)
+library(hrbrthemes)
+library(readxl)
+library(ggtext)
+library(ggalt)
+library(ragg)
+library(systemfonts)
+library(gt)
+library(knitr)
+library(pagedown)
+library(googlesheets4)
+```
+
+
+```{r}
+psu_green <- "#6d8d24"
+psu_electricgreen <- "#cfd82d"
+psu_forestgreen <- "#213921"
+psu_blue <- "#008ac1"
+psu_lightblue <- "#a5dff9"
+psu_sand <- "#e8d3a2"
+psu_stone <- "#8a8a67"
+psu_yellow <- "#ffc20e"
+psu_red <- "#e64927"
+psu_orange <- "#f68b1f"
+psu_purple <- "#650360"
+```
+
+```{r import 2123 fc session data, include=FALSE}
+fc_old <-read_excel(path = "G:\\Shared drives\\CWP Training Evaluation Protected\\CWP Training\\FC\\Data\\ZArchive\\Family Conditions DB 2021-2023.xlsx",
+                                   sheet = "Data") %>% 
+  clean_names() %>% 
+  filter(session %in% c("DYPO", "DYSO", "DOVI")) %>% 
+  select(cohort, session, starts_with("pre"), starts_with("post"), starts_with("raw")) %>% 
+  relocate(cohort, session, pre_lo1, post_lo1, pre_lo2, post_lo2, pre_lo3, post_lo3, pre_lo4, post_lo4, pre_lo5, post_lo5, pre_lo6, post_lo6) %>% 
+  mutate(cohort = as.character(cohort)) %>% 
+  mutate(training = "fc_old") %>% 
+  relocate(training, .before = cohort)
+
+names(fc_old)[3] <- "sess_code"
+```
+
+```{r import 2123 fc lo text, include=FALSE}
+fc_old_lo_text <-read_excel(path = "G:\\Shared drives\\CWP Training Evaluation Protected\\CWP Training\\FC\\Data\\ZArchive\\Family Conditions DB 2021-2023.xlsx",
+                                   sheet = "LOList") %>% 
+  clean_names() %>% 
+  select(-num_hrs) %>% 
+  pivot_longer(cols = -c(title, session),
+               names_to = "lo_num",
+               values_to = "lo_text",
+               values_drop_na = TRUE) %>% 
+  mutate(training = "fc_old") %>% 
+  relocate(training, .before = session)
+  
+names(fc_old_lo_text)[2] <- "sess_code"
+```
+
+```{r import 2325 fc session data, include=FALSE}
+fc_current <-read_sheet("https://docs.google.com/spreadsheets/d/1or2liAYga4IkcZme9_CBGEeJbrF6pQGEF8A8QyQDoPc/edit#gid=1512201892", "session") %>% 
+  clean_names() %>% 
+  filter(sess_code %in% c("DYPO", "DYSO", "DOVI")) %>% 
+  select(cohort, sess_code, starts_with("pre"), starts_with("post"), starts_with("raw")) %>% 
+  select(-c(raw_effective, raw_support, raw_panel)) %>% 
+  mutate(cohort = as.character(cohort)) %>% 
+  mutate(training = "FC") %>% 
+  relocate(training, .before = cohort)
+```
+
+
+```{r import 2325 fc lo text, include=FALSE}
+fc_current_lo_text <-read_sheet("https://docs.google.com/spreadsheets/d/1or2liAYga4IkcZme9_CBGEeJbrF6pQGEF8A8QyQDoPc/edit#gid=282801708", "codes_los") %>% 
+  clean_names() %>% 
+  select(sess_code:lo6) %>%
+  pivot_longer(cols = -c(title, sess_code),
+               names_to = "lo_num",
+               values_to = "lo_text",
+               values_drop_na = TRUE) %>% 
+  mutate(training = "FC") %>% 
+  relocate(training, .before = sess_code)
+```
+
+```{r import 2325 ee session data, include=FALSE}
+ee_current <-read_sheet("https://docs.google.com/spreadsheets/d/1te-JuXY9Cy0Zv2N6cfhkwnyNMymF99A1uP9gJq77evw/edit#gid=1947227508", "session") %>% 
+  clean_names() %>% 
+  filter(sess_code %in% c("DOVI", "NEGL", "SEAB")) %>% 
+  select(cohort, sess_code, starts_with("pre"), starts_with("post"), starts_with("raw")) %>% 
+  select(-c(raw_effective, raw_support, raw_panel)) %>% 
+  mutate(training = "EE") %>% 
+  relocate(training, .before = cohort)
+```
+
+```{r import 2325 ee lo text, include=FALSE}
+ee_current_lo_text <-read_sheet("https://docs.google.com/spreadsheets/d/1te-JuXY9Cy0Zv2N6cfhkwnyNMymF99A1uP9gJq77evw/edit#gid=1856729369", "codes_los") %>% 
+  clean_names() %>% 
+  select(sess_code:lo7) %>% 
+  pivot_longer(cols = -c(title, sess_code),
+               names_to = "lo_num",
+               values_to = "lo_text",
+               values_drop_na = TRUE) %>% 
+  mutate(training = "EE") %>% 
+  relocate(training, .before = sess_code)
+```
+
+```{r combine session data, include=FALSE}
+data_combined <- bind_rows(
+  ee_current,
+  fc_current,
+  fc_old
+) %>% 
+  select(-ends_with(c("5", "6", "7"))) %>% 
+  mutate(sess_code = recode(sess_code, "SEAB" = "SECR",
+                            "DYSO" = "SECR",
+                            "NEGL" = "LACK",
+                            "DYPO" = "LACK"))
+```
+
+```{r combine lo data, include=FALSE}
+lo_combined <- bind_rows(
+  ee_current_lo_text,
+  fc_current_lo_text,
+  fc_old_lo_text
+) %>% 
+  mutate(sess_code = recode(sess_code, "SEAB" = "SECR",
+                            "DYSO" = "SECR",
+                            "NEGL" = "LACK",
+                            "DYPO" = "LACK"))
+```
+
+```{r respondents fc old, include=FALSE}
+fc_old_number_of_respondents <- data_combined %>% 
+  filter(sess_code == params$session,
+         training == "fc_old") %>% 
+  count(sess_code) %>% 
+  pull(n)
+```
+
+```{r respondents fc current, include=FALSE}
+fc_current_number_of_respondents <- data_combined %>% 
+  filter(sess_code == params$session,
+         training == "FC") %>% 
+  count(sess_code) %>% 
+  pull(n)
+```
+
+```{r respondents ee current, include=FALSE}
+ee_current_number_of_respondents <- data_combined %>% 
+  filter(sess_code == params$session,
+         training == "EE") %>% 
+  count(sess_code) %>% 
+  pull(n)
+```
+
+Essential Elements Trainings from July 2023 - May 2024
+Respondents: **`r ee_current_number_of_respondents`**
+
+Family Conditions Trainings from July 2021 - June 2023
+Respondents: **`r fc_old_number_of_respondents`**
+
+Family Conditions Trainings from July 2023 - May 2024
+Respondents: **`r fc_current_number_of_respondents`**
+
+```{r lo-mean}
+lo_mean <- data_combined %>%
+  select(training, sess_code, pre_lo1:post_lo4) %>% 
+  group_by(training, sess_code) %>%
+  summarize(pre_lo1 = mean(pre_lo1, na.rm = TRUE),
+            post_lo1 = mean(post_lo1, na.rm = TRUE),
+            pre_lo2 = mean(pre_lo2, na.rm = TRUE),
+            post_lo2 = mean(post_lo2, na.rm = TRUE),
+            pre_lo3 = mean(pre_lo3, na.rm = TRUE),
+            post_lo3 = mean(post_lo3, na.rm =TRUE),
+            pre_lo4 = mean(pre_lo4, na.rm = TRUE),
+            post_lo4 = mean(post_lo4, na.rm =TRUE)) %>% 
+  ungroup() %>% 
+  pivot_longer(cols = -c(training, sess_code),
+               names_to = "lo",
+               values_to = "mean",
+               values_drop_na = TRUE) %>% 
+  separate(lo, c("prepost","lo_num"), "_") %>%
+  mutate(mean_round = round(mean,1))
+```
+
+## PRE-POST Participant Self Assessed Knowledge Ratings
+
+### Essential Elements
+Participants chose their level of knowledge on a **7-point** anchored scale (None and Thorough)
+```{r ee pre-post}
+ee_foobar <- lo_mean %>% 
+  left_join(lo_combined) %>% 
+  filter(sess_code == params$session,
+         training == "EE") %>% 
+  drop_na() %>%
+  mutate(lo_num = fct_rev(lo_num)) %>%
+  mutate(lo_text = str_wrap(lo_text, 40))
+
+ee_segments <- ee_foobar %>%
+  select(training, lo_num, lo_text, prepost, mean_round) %>%
+  filter(training == "EE") %>% 
+  pivot_wider(names_from = prepost,
+              values_from = mean_round)
+```
+
+```{r ee ppgraph, fig.height=6}
+ee_gg_dot_plot <- ee_foobar %>% 
+  mutate(lo_text = str_wrap(lo_text, 40)) %>% 
+  ggplot(aes(x = mean_round,
+             y = lo_text,
+             color = prepost,
+             label = mean_round)) +
+  geom_segment(data = ee_segments,
+               aes(x = pre,
+                   xend = post,
+                   y = lo_text,
+                   yend = lo_text, 
+                   colour = "grey",
+                   linewidth = 0.25), 
+               inherit.aes = FALSE) +
+  geom_point(size = 9) +
+  geom_text(family = "URWGothic", color = "white") +
+  scale_color_manual(values = c(
+    "pre" = psu_lightblue,
+    "post" = psu_blue)) +
+  scale_x_continuous(limits = c(1, 7),
+                     labels = NULL) +
+  scale_y_discrete(expand = expansion(add = 2)) +
+  # labs(title = "<span style='color: #a5dff9'>Pre</span> and <span style='color:#008ac1;'>Post</span>  Participant Self Assessed Knowledge Rating by Learning Objective",
+  #      x = NULL) +
+  theme_minimal() +
+  theme(plot.title = element_markdown(hjust = 1, size=16),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        axis.title = element_blank(),
+        legend.position = "none") 
+
+ggsave("ee_gg_dot_plot.png",
+       ee_gg_dot_plot,
+       width = 8)
+
+knitr::include_graphics("ee_gg_dot_plot.png")
+```
+
+### Family Conditions ('21-'23 Biennium)
+Participants chose their level of knowledge on a **5-point** labeled scale (None, Minimal, Fair, Good, Very Good)
+```{r fc old pre-post}
+fc_old_foobar <- lo_mean %>% 
+  left_join(lo_combined) %>% 
+  filter(sess_code == params$session,
+         training == "fc_old") %>% 
+  drop_na() %>%
+  mutate(lo_num = fct_rev(lo_num)) %>%
+  mutate(lo_text = str_wrap(lo_text, 40))
+
+fc_old_segments <- fc_old_foobar %>%
+  select(training, lo_num, lo_text, prepost, mean_round) %>%
+  filter(training == "fc_old") %>% 
+  pivot_wider(names_from = prepost,
+              values_from = mean_round)
+```
+
+```{r fc old ppgraph, fig.height=4.5}
+fc_old_gg_dot_plot <- fc_old_foobar %>% 
+  mutate(lo_text = str_wrap(lo_text, 40)) %>% 
+  ggplot(aes(x = mean_round,
+             y = lo_text,
+             color = prepost,
+             label = mean_round)) +
+  geom_segment(data = fc_old_segments,
+               aes(x = pre,
+                   xend = post,
+                   y = lo_text,
+                   yend = lo_text, 
+                   colour = "grey",
+                   linewidth = 0.25), 
+               inherit.aes = FALSE) +
+  geom_point(size = 9) +
+  geom_text(family = "URWGothic", color = "white") +
+  scale_color_manual(values = c(
+    "pre" = psu_lightblue,
+    "post" = psu_blue)) +
+  scale_x_continuous(limits = c(1, 7),
+                     labels = NULL) +
+  scale_y_discrete(expand = expansion(add = 2)) +
+  # labs(title = "<span style='color: #a5dff9'>Pre</span> and <span style='color:#008ac1;'>Post</span>  Participant Self Assessed Knowledge Rating by Learning Objective",
+  #      x = NULL) +
+  theme_minimal() +
+  theme(plot.title = element_markdown(hjust = 1, size=16),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        axis.title = element_blank(),
+        legend.position = "none") 
+
+ggsave("fc_old_gg_dot_plot.png",
+       fc_old_gg_dot_plot,
+       width = 8)
+
+knitr::include_graphics("fc_old_gg_dot_plot.png")
+```
+
+### Family Conditions ('23-'25 Biennium)
+Participants chose their level of knowledge on a **7-point** anchored scale (None and Thorough)
+```{r fc current pre-post}
+fc_current_foobar <- lo_mean %>% 
+  left_join(lo_combined) %>% 
+  filter(sess_code == params$session,
+         training == "FC") %>% 
+  drop_na() %>%
+  mutate(lo_num = fct_rev(lo_num)) %>%
+  mutate(lo_text = str_wrap(lo_text, 40))
+
+fc_current_segments <- fc_current_foobar %>%
+  select(training, lo_num, lo_text, prepost, mean_round) %>%
+  filter(training == "FC") %>% 
+  pivot_wider(names_from = prepost,
+              values_from = mean_round)
+```
+
+```{r fc current ppgraph, fig.height=4.5}
+fc_current_gg_dot_plot <- fc_current_foobar %>% 
+  mutate(lo_text = str_wrap(lo_text, 40)) %>% 
+  ggplot(aes(x = mean_round,
+             y = lo_text,
+             color = prepost,
+             label = mean_round)) +
+  geom_segment(data = fc_current_segments,
+               aes(x = pre,
+                   xend = post,
+                   y = lo_text,
+                   yend = lo_text, 
+                   colour = "grey",
+                   linewidth = 0.25), 
+               inherit.aes = FALSE) +
+  geom_point(size = 9) +
+  geom_text(family = "URWGothic", color = "white") +
+  scale_color_manual(values = c(
+    "pre" = psu_lightblue,
+    "post" = psu_blue)) +
+  scale_x_continuous(limits = c(1, 7),
+                     labels = NULL) +
+  scale_y_discrete(expand = expansion(add = 2)) +
+  # labs(title = "<span style='color: #a5dff9'>Pre</span> and <span style='color:#008ac1;'>Post</span>  Participant Self Assessed Knowledge Rating by Learning Objective",
+  #      x = NULL) +
+  theme_minimal() +
+  theme(plot.title = element_markdown(hjust = 1, size=16),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        axis.title = element_blank(),
+        legend.position = "none") 
+
+ggsave("fc_current_gg_dot_plot.png",
+       fc_current_gg_dot_plot,
+       width = 8)
+
+knitr::include_graphics("fc_current_gg_dot_plot.png")
+```
+
+\newpage
+## Participant Comments  
+
+### Essential Elements
+*Comments have been pulled that reference any content or activities that participants would like for deeper learning.*
+
+```{r ee effective comments}
+data_combined %>%
+  filter(sess_code == params$session,
+         training == "EE") %>%
+  select(raw_kg_fcproj_effective) %>%
+  drop_na()  %>% 
+  gt() %>% 
+  tab_options(table.align = "left") %>%
+  cols_label(
+    raw_kg_fcproj_effective = md("**Ways session was effective in advancing knowledge or skills**"))
+```
+
+```{r ee support comments}
+data_combined %>%
+  filter(sess_code == params$session,
+         training == "EE") %>% 
+  select(raw_kg_fcproj_improve) %>% 
+  drop_na() %>% 
+  gt() %>% 
+  tab_options(table.align = "left") %>%
+  cols_label(
+    raw_kg_fcproj_improve = md("**Ways we could better support learning in this session**"))
+```
+
+### Family Conditions ('21-'23 Biennium)
+*Comments have been pulled that reference any content or activities and comments that reference learning from EE.*
+
+```{r fc old liked best}
+data_combined %>%
+  filter(sess_code == params$session,
+         training == "fc_old") %>%
+  select(raw_kg_fcproj_effective) %>%
+  drop_na()  %>% 
+  gt() %>% 
+  tab_options(table.align = "left") %>%
+  cols_label(
+    raw_kg_fcproj_effective = md("**What liked best about the session**"))
+```
+
+```{r fc old improved}
+data_combined %>%
+  filter(sess_code == params$session,
+         training == "fc_old") %>% 
+  select(raw_kg_fcproj_improve) %>% 
+  drop_na() %>% 
+  gt() %>% 
+  tab_options(table.align = "left") %>%
+  cols_label(
+    raw_kg_fcproj_improve = md("**What could be improved in the session**"))
+```
+
+### Family Conditions ('23-'25 Biennium)
+*Comments have been pulled that reference any content or activities and comments that reference learning from EE.*
+
+```{r fc effective comments}
+data_combined %>%
+  filter(sess_code == params$session,
+         training == "FC") %>%
+  select(raw_kg_fcproj_effective) %>%
+  drop_na()  %>% 
+  gt() %>% 
+  tab_options(table.align = "left") %>%
+  cols_label(
+    raw_kg_fcproj_effective = md("**Ways session was effective in advancing knowledge or skills**"))
+```
+
+```{r fc support comments}
+data_combined %>%
+  filter(sess_code == params$session,
+         training == "FC") %>% 
+  select(raw_kg_fcproj_improve) %>% 
+  drop_na() %>% 
+  gt() %>% 
+  tab_options(table.align = "left") %>%
+  cols_label(
+    raw_kg_fcproj_improve = md("**Ways we could better support learning in this session**"))
+```
+
